@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>欠勤報告ツール</title>
+  <style>
+    :root {
+      --amz-dark: #131921;
+      --amz-navy: #232F3E;
+      --amz-blue: #37475A;
+      --amz-orange: #FF9900;
+      --amz-orange-hover: #E88B00;
+      --amz-light: #F3F3F3;
+      --amz-white: #FFFFFF;
+      --amz-link: #146EB4;
+      --amz-green: #067D62;
+      --amz-red: #B12704;
+      --radius: 10px;
+      --shadow: 0 2px 8px rgba(19,25,33,0.12);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', 'Meiryo', sans-serif; background: var(--amz-light); color: #0F1111; padding: 0; min-height: 100vh; }
+
+    /* Header */
+    .top-bar { background: var(--amz-dark); padding: 14px 20px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+    .top-bar h1 { color: var(--amz-white); font-size: 1.3rem; font-weight: 700; letter-spacing: 0.5px; }
+    .top-bar .accent { color: var(--amz-orange); }
+    .nav-bar { background: var(--amz-navy); padding: 8px 20px; display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+    .nav-bar a { color: var(--amz-white); text-decoration: none; font-size: 1.05rem; font-weight: 600; padding: 6px 14px; border-radius: 4px; transition: background 0.2s; cursor: pointer; }
+    .nav-bar a:hover { background: var(--amz-blue); }
+    .nav-bar a.active { background: var(--amz-orange); color: var(--amz-dark); }
+
+    .container { max-width: 820px; margin: 0 auto; padding: 20px; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .card { background: var(--amz-white); border-radius: var(--radius); padding: 22px; margin-bottom: 16px; box-shadow: var(--shadow); border: 1px solid #D5D9D9; }
+    .card h2 { font-size: 1rem; color: var(--amz-dark); margin-bottom: 14px; padding-bottom: 8px; border-bottom: 3px solid var(--amz-orange); letter-spacing: 0.3px; }
+
+    .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .form-group { display: flex; flex-direction: column; flex: 1; min-width: 140px; }
+    .form-group label { font-size: 0.8rem; font-weight: 700; margin-bottom: 4px; color: var(--amz-navy); text-transform: uppercase; letter-spacing: 0.3px; }
+    .form-group select, .form-group input {
+      padding: 9px 12px; border: 1px solid #888C8C; border-radius: 8px; font-size: 0.92rem;
+      background: var(--amz-white); transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-group select:focus, .form-group input:focus {
+      outline: none; border-color: var(--amz-orange);
+      box-shadow: 0 0 0 3px rgba(255,153,0,0.2);
+    }
+
+    .btn { padding: 9px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 0.88rem; font-weight: 700;
+      transition: all 0.2s; letter-spacing: 0.2px; display: inline-flex; align-items: center; gap: 4px; }
+    .btn-primary { background: linear-gradient(to bottom, #FFD814, #FF9900); color: var(--amz-dark); border: 1px solid #FCD200; }
+    .btn-primary:hover { background: linear-gradient(to bottom, #F7CA00, #E88B00); }
+    .btn-save { background: linear-gradient(to bottom, #FFD814, #FF9900); color: var(--amz-dark); border: 1px solid #FCD200; }
+    .btn-save:hover { background: linear-gradient(to bottom, #F7CA00, #E88B00); }
+    .btn-danger { background: var(--amz-white); color: var(--amz-red); border: 1px solid #D5D9D9; font-size: 0.8rem; padding: 5px 12px; }
+    .btn-danger:hover { background: #FFF0F0; }
+    .btn-success { background: var(--amz-green); color: var(--amz-white); border: 1px solid #056B54; }
+    .btn-success:hover { background: #056B54; }
+    .btn-secondary { background: var(--amz-white); color: var(--amz-dark); border: 1px solid #D5D9D9; }
+    .btn-secondary:hover { background: #F7FAFA; }
+    .btn-dark { background: var(--amz-navy); color: var(--amz-white); }
+    .btn-dark:hover { background: var(--amz-blue); }
+    .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px 12px; text-align: left; font-size: 0.88rem; }
+    th { background: var(--amz-navy); color: var(--amz-white); font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.3px; }
+    td { border-bottom: 1px solid #E7E7E7; }
+    tr:hover td { background: #FFF8E7; }
+
+    .report-box {
+      background: var(--amz-dark); color: #E0E0E0; border: none; border-radius: 8px;
+      padding: 18px; white-space: pre-wrap; font-family: 'Consolas', 'Meiryo', monospace;
+      font-size: 0.88rem; line-height: 1.7; min-height: 100px;
+    }
+    .copy-msg { color: var(--amz-green); font-size: 0.85rem; margin-left: 8px; display: none; font-weight: 600; }
+    .empty-msg { color: #888; font-style: italic; text-align: center; padding: 24px; }
+
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; color: var(--amz-white); letter-spacing: 0.3px; }
+    .badge-l1 { background: var(--amz-link); }
+    .badge-ar { background: var(--amz-orange); color: var(--amz-dark); }
+    .badge-contact-yes { background: var(--amz-green); }
+    .badge-contact-no { background: var(--amz-red); }
+    .badge-agency { background: var(--amz-navy); }
+
+    .name-suggest-wrap { position: relative; }
+    .name-suggest {
+      position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+      background: var(--amz-white); border: 1px solid #D5D9D9; border-top: none;
+      border-radius: 0 0 8px 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.12);
+      max-height: 180px; overflow-y: auto; display: none;
+    }
+    .name-suggest div { padding: 8px 12px; cursor: pointer; font-size: 0.92rem; }
+    .name-suggest div:hover, .name-suggest div.active { background: #FFF8E7; }
+
+    /* History tab styles */
+    .streak-warn { background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; }
+    .streak-warn .name { font-weight: 700; color: #856404; }
+    .streak-danger { background: #f8d7da; border: 1px solid #f5c6cb; }
+    .streak-danger .name { color: #721c24; }
+    .person-history { margin-top: 8px; }
+
+    /* SOP tab styles */
+    .subtitle { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 24px; }
+    .step { display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start; }
+    .step-num { background: var(--amz-orange); color: #fff; width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
+    .step-content { flex: 1; font-size: 0.9rem; line-height: 1.6; }
+    .step-content strong { color: var(--amz-dark); }
+    .note { background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px 14px; margin: 10px 0;
+      font-size: 0.85rem; border-radius: 0 4px 4px 0; }
+    .important { background: #f8d7da; border-left: 4px solid #dc3545; padding: 10px 14px; margin: 10px 0;
+      font-size: 0.85rem; border-radius: 0 4px 4px 0; }
+    .tip { background: #d4edda; border-left: 4px solid #28a745; padding: 10px 14px; margin: 10px 0;
+      font-size: 0.85rem; border-radius: 0 4px 4px 0; }
+    .card h3 { font-size: 0.95rem; color: #555; margin: 12px 0 6px; }
+    .toc { background: #f8f9fa; padding: 14px 20px; border-radius: 6px; margin-bottom: 16px; }
+    .toc a { color: var(--amz-link); text-decoration: none; font-size: 0.9rem; display: block; padding: 3px 0; }
+    .toc a:hover { text-decoration: underline; }
+    ul { margin: 6px 0 6px 20px; font-size: 0.9rem; line-height: 1.8; }
+
+    /* スマホ対応 */
+    @media (max-width: 768px) {
+      .top-bar h1 { font-size: 1.1rem; }
+      .nav-bar { gap: 8px; padding: 8px 10px; }
+      .nav-bar a { font-size: 0.85rem; padding: 6px 8px; }
+      .container { padding: 10px; }
+      .card { padding: 14px; margin-bottom: 10px; }
+      .form-row { flex-direction: column; gap: 8px; }
+      .form-group { min-width: 100%; }
+      .actions { flex-direction: column; }
+      .actions .btn { width: 100%; justify-content: center; }
+      table { font-size: 0.78rem; }
+      th, td { padding: 6px 4px; }
+      .report-box { font-size: 0.78rem; padding: 12px; }
+      .btn { font-size: 0.82rem; padding: 10px 14px; }
+      #mailPaste { font-size: 0.82rem; }
+      .step { gap: 8px; }
+      .step-content { font-size: 0.82rem; }
+      ul { font-size: 0.82rem; }
+      .note, .important, .tip { font-size: 0.78rem; padding: 8px 10px; }
+      .toc a { font-size: 0.82rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <h1><span class="accent">▎</span> 欠勤報告ツール</h1>
+  </div>
+  <div class="nav-bar">
+    <a onclick="switchTab('report')" id="tab-report" class="active">📋 欠勤報告</a>
+    <a onclick="switchTab('history')" id="tab-history">📊 欠勤履歴検索</a>
+    <a onclick="switchTab('sop')" id="tab-sop">📖 SOP</a>
+  </div>
+
+  <!-- ==================== TAB 1: 欠勤報告 ==================== -->
+  <div class="tab-content active" id="content-report">
+    <div class="container">
+      <!-- 基本情報 -->
+      <div class="card">
+        <h2>基本情報</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>日付</label>
+            <input type="date" id="reportDate">
+          </div>
+          <div class="form-group">
+            <label>確認時刻</label>
+            <input type="time" id="checkTime">
+          </div>
+          <div class="form-group">
+            <label>CYCLE</label>
+            <select id="cycle">
+              <option value="日勤">日勤</option>
+              <option value="夜勤">夜勤</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>勤務時間</label>
+            <div class="name-suggest-wrap">
+              <input type="text" id="workShift" placeholder="例: 8:00-17:00" autocomplete="off" oninput="showShiftSuggest()" onfocus="showShiftSuggest()">
+              <div class="name-suggest" id="shiftSuggest"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 欠勤者登録 -->
+      <div class="card">
+        <h2>欠勤者登録</h2>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:0.8rem;font-weight:700;color:var(--amz-navy);text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:4px;">📩 メール貼り付け（自動入力）</label>
+          <textarea id="mailPaste" rows="4" placeholder="勤怠メールの内容をここに貼り付けてください。名前・雇用形態・日付・シフト・理由を自動で読み取ります。" style="width:100%;padding:9px 12px;border:1px solid #888C8C;border-radius:8px;font-size:0.88rem;font-family:inherit;resize:vertical;"></textarea>
+          <div class="actions" style="margin-top:6px;">
+            <button class="btn btn-primary" onclick="parseMailAndFill()">📋 メールから自動入力</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('mailPaste').value=''">クリア</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>名前</label>
+            <div class="name-suggest-wrap">
+              <input type="text" id="personName" placeholder="例: 山田太郎" autocomplete="off" oninput="showNameSuggest()" onfocus="showNameSuggest()">
+              <div class="name-suggest" id="nameSuggest"></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>雇用形態</label>
+            <select id="employeeType">
+              <option value="L1">L1</option>
+              <option value="ランスタッド">ランスタッド</option>
+              <option value="ファイズオペレーション">ファイズオペレーション</option>
+              <option value="フルキャスト">フルキャスト</option>
+              <option value="バイトレ">バイトレ</option>
+              <option value="ラボロ">ラボロ</option>
+              <option value="Amazon Ready">Amazon Ready</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>連絡状況</label>
+            <select id="contactStatus">
+              <option value="連絡あり">連絡あり</option>
+              <option value="連絡なし">連絡なし</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>欠勤理由</label>
+            <select id="absenceReason">
+              <option value="Sick Leave">Sick Leave</option>
+              <option value="Family Matter">Family Matter</option>
+              <option value="No Contact">No Contact</option>
+              <option value="欠勤理由なし">欠勤理由なし</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group" id="otherReasonGroup" style="display:none;">
+            <label>Otherの内容</label>
+            <input type="text" id="otherReason" placeholder="理由を入力">
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" onclick="addAbsence()">＋ 追加 <span style="font-size:0.7rem;opacity:0.8;margin-left:4px;">(Ctrl+Enter)</span></button>
+        </div>
+      </div>
+
+      <!-- 登録一覧 -->
+      <div class="card">
+        <h2>登録済み欠勤者一覧</h2>
+        <div id="absenceList">
+          <p class="empty-msg">まだ欠勤者が登録されていません</p>
+        </div>
+      </div>
+
+      <!-- レポート生成 -->
+      <div class="card">
+        <h2>レポート</h2>
+        <div class="actions" style="margin-bottom: 12px;">
+          <button class="btn btn-success" onclick="generateReport()">📄 レポート生成</button>
+          <button class="btn btn-secondary" onclick="copyReport()">📋 コピー</button>
+          <span class="copy-msg" id="copyMsg">コピーしました！</span>
+        </div>
+        <div class="report-box" id="reportOutput">レポート生成ボタンを押してください</div>
+      </div>
+
+      <!-- ナビゲーション -->
+      <div style="text-align: center; margin-top: 12px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+        <button class="btn btn-secondary" onclick="switchTab('history')">📊 欠勤履歴を見る</button>
+        <button class="btn btn-success" onclick="exportHistory()">📥 エクスポート</button>
+        <button class="btn btn-secondary" onclick="switchTab('sop')">📖 SOP</button>
+        <button class="btn btn-danger" onclick="resetAll()">🔄 全てリセット</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 2: 欠勤履歴検索 ==================== -->
+  <div class="tab-content" id="content-history">
+    <div class="container">
+      <h1 style="text-align:center;color:var(--amz-dark);margin-bottom:20px;font-size:1.5rem;">📊 欠勤履歴検索</h1>
+
+      <!-- 個人検索 -->
+      <div class="card">
+        <h2>個人検索（継続性チェック）</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>名前で検索</label>
+            <input type="text" id="searchName" placeholder="名前を入力" oninput="searchPerson()">
+          </div>
+        </div>
+        <div id="personResult"></div>
+      </div>
+
+      <!-- 連続欠勤アラート -->
+      <div class="card">
+        <h2>⚠ 連続欠勤アラート</h2>
+        <p style="font-size:0.85rem;color:#666;margin-bottom:8px;">2日以上連続で欠勤している人を自動検出します</p>
+        <div id="streakAlert"></div>
+      </div>
+
+      <!-- 全履歴 -->
+      <div class="card">
+        <h2>全履歴</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>日付（From）</label>
+            <input type="date" id="filterFrom">
+          </div>
+          <div class="form-group">
+            <label>日付（To）</label>
+            <input type="date" id="filterTo">
+          </div>
+          <div class="form-group">
+            <label>雇用形態</label>
+            <select id="filterType">
+              <option value="">全て</option>
+              <option value="L1">L1</option>
+              <option value="ランスタッド">ランスタッド</option>
+              <option value="ファイズオペレーション">ファイズオペレーション</option>
+              <option value="フルキャスト">フルキャスト</option>
+              <option value="バイトレ">バイトレ</option>
+              <option value="ラボロ">ラボロ</option>
+              <option value="Amazon Ready">Amazon Ready</option>
+            </select>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" onclick="renderHistoryTable()">🔍 検索</button>
+          <button class="btn btn-secondary" onclick="clearFilters()">クリア</button>
+        </div>
+        <div id="historyTable"></div>
+      </div>
+
+      <!-- 操作 -->
+      <div style="text-align:center; margin-top:12px; display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="switchTab('report')">← 欠勤報告に戻る</button>
+        <button class="btn btn-success" onclick="exportFullHistory()">📥 エクスポート</button>
+        <button class="btn btn-primary" onclick="document.getElementById('importFile').click()">📤 インポート</button>
+        <input type="file" id="importFile" accept=".csv,.json" style="display:none;" multiple onchange="importHistory(event)">
+        <button class="btn btn-secondary" onclick="switchTab('sop')">📖 SOP</button>
+        <button class="btn btn-danger" onclick="clearAllHistory()">🗑 全履歴削除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 3: SOP ==================== -->
+  <div class="tab-content" id="content-sop">
+    <div class="container">
+      <h1 style="text-align:center;color:var(--amz-dark);margin-bottom:8px;font-size:1.5rem;">📖 SOP - 欠勤報告ツール 使用手順書</h1>
+      <p class="subtitle">Standard Operating Procedure</p>
+
+      <div class="toc card">
+        <h2>目次</h2>
+        <a href="#sec1">1. 概要</a>
+        <a href="#sec2">2. 毎日の欠勤報告手順</a>
+        <a href="#sec3">3. 履歴データの共有（CSV エクスポート/インポート）</a>
+        <a href="#sec4">4. 欠勤履歴検索の使い方</a>
+        <a href="#sec5">5. 便利機能</a>
+        <a href="#sec6">6. スマホでの利用</a>
+        <a href="#sec7">7. 注意事項・FAQ</a>
+      </div>
+
+      <!-- 1. 概要 -->
+      <div class="card" id="sec1">
+        <h2>1. 概要</h2>
+        <p style="font-size:0.9rem;line-height:1.7;">
+          本ツールは、毎日の欠勤報告を簡単に作成・コピーし、CSVファイルで履歴データを蓄積・共有して継続性を確認するためのHTMLツールです。<br>
+          ブラウザ（Chrome / Edge推奨）で開くだけで使用でき、インストールは不要です。PC・スマホ両対応。
+        </p>
+        <h3>画面構成</h3>
+        <ul>
+          <li><strong>📋 欠勤報告</strong> — 欠勤報告作成（メイン画面）</li>
+          <li><strong>📊 欠勤履歴検索</strong> — 欠勤履歴検索</li>
+          <li><strong>📖 SOP</strong> — 本手順書</li>
+        </ul>
+        <h3>対応雇用形態</h3>
+        <ul>
+          <li>L1</li>
+          <li>派遣会社（L99）: ランスタッド / ファイズオペレーション / フルキャスト / バイトレ / ラボロ</li>
+          <li>Amazon Ready</li>
+        </ul>
+      </div>
+
+      <!-- 2. 毎日の欠勤報告手順 -->
+      <div class="card" id="sec2">
+        <h2>2. 毎日の欠勤報告手順</h2>
+        <div class="step"><div class="step-num">1</div><div class="step-content"><strong>本ファイルをブラウザで開く</strong><br>ファイルをダブルクリック、またはブラウザにドラッグ＆ドロップします。</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><strong>基本情報を設定</strong><br>日付（自動入力済み）、確認時刻（自動入力済み）、CYCLE（日勤/夜勤）、勤務時間を確認・選択します。<br>勤務時間はサジェストから選択するか、自由入力も可能です。</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content"><strong>欠勤者を登録（2つの方法）</strong><br><strong>方法A: メール貼り付け（推奨）</strong><br>勤怠メールの内容を「📩 メール貼り付け」欄にペーストし、「📋 メールから自動入力」ボタンを押すと、名前・雇用形態・日付・シフト・理由が自動で入力されます。<br><br><strong>方法B: 手動入力</strong><br>以下を入力して「＋ 追加」ボタン（または Ctrl+Enter）を押します。<ul><li>名前（過去に入力した名前はサジェスト表示されます）</li><li>雇用形態（ドロップダウンから選択）</li><li>連絡状況（連絡あり / 連絡なし）</li><li>欠勤理由（Sick Leave / Family Matter / No Contact / 欠勤理由なし / Other）</li></ul></div></div>
+        <div class="note">💡 メールに欠勤理由が書かれていない場合は「欠勤理由なし」を選択してください。<br>💡 連絡なしの場合は、連絡状況を「連絡なし」、欠勤理由を「No Contact」にしてください。<br>💡 「Other」を選択した場合は、テキスト入力欄に具体的な理由を記入してください。<br>💡 Ctrl+Enter で素早く追加できます。</div>
+        <div class="step"><div class="step-num">4</div><div class="step-content"><strong>レポートを生成</strong><br>全員の登録が完了したら「📄 レポート生成」ボタンを押します。<br>0名のカテゴリは自動で省略されます。</div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-content"><strong>レポートをコピーして報告</strong><br>「📋 コピー」ボタンを押し、メールやチャットに貼り付けて報告します。</div></div>
+        <div class="step"><div class="step-num">6</div><div class="step-content"><strong>CSVエクスポート</strong><br>「📥 エクスポート」ボタンを押して、本日の欠勤データをCSVファイルとしてダウンロードします。<br>このCSVはExcelで開けます。また、欠勤履歴検索でインポートして蓄積できます。</div></div>
+        <div class="important">⚠ エクスポートを忘れるとデータが残りません。レポート生成後に必ずエクスポートしてください。</div>
+      </div>
+
+      <!-- 3. CSV共有 -->
+      <div class="card" id="sec3">
+        <h2>3. 履歴データの共有（CSV エクスポート/インポート）</h2>
+        <p style="font-size:0.9rem;line-height:1.7;margin-bottom:12px;">データはCSVファイルで管理します。Excelでも開けます。SharePoint等の共有フォルダを使えば複数PCで共有できます。</p>
+        <h3>📥 エクスポート（データを書き出す）</h3>
+        <div class="step"><div class="step-num">1</div><div class="step-content">欠勤報告画面の「📥 エクスポート」ボタンを押す</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content"><strong>absence_history_YYYY-MM-DD.csv</strong> がダウンロードされる</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content">CSVファイルをSharePointの共有フォルダに保存する</div></div>
+        <div class="note">💡 欠勤履歴検索画面からもエクスポート可能です（蓄積済みの全データをCSV出力）。</div>
+        <h3>📤 インポート（データを読み込む）</h3>
+        <div class="step"><div class="step-num">1</div><div class="step-content">欠勤履歴検索画面の「📤 インポート」ボタンを押す</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-content">CSVファイルを選択（複数ファイル一括選択可能：Ctrl+クリック or Shift+クリック）</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-content">データが自動でマージされる（名前+日付+CYCLEの重複は自動スキップ）</div></div>
+        <div class="tip">✅ 推奨運用フロー（毎日）<br>① 欠勤報告作成 → レポート生成 → コピーして報告<br>② 「📥 エクスポート」でCSVダウンロード → SharePointに保存<br>③ 履歴を確認したいとき → 欠勤履歴検索でCSVをインポート</div>
+        <div class="important">⚠ エクスポートしないとデータは残りません。毎日必ずエクスポートしてSharePointに保存してください。</div>
+      </div>
+
+      <!-- 4. 欠勤履歴検索 -->
+      <div class="card" id="sec4">
+        <h2>4. 欠勤履歴検索の使い方</h2>
+        <h3>画面を開く</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">ナビバーの「📊 欠勤履歴検索」タブをクリックします。</p>
+        <h3>データの読み込み</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">「📤 インポート」ボタンからCSVファイルを読み込みます。<br>複数ファイルを一括選択できるので、例えば1週間分のCSVをまとめてインポートできます。</p>
+        <h3>個人検索</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">名前を入力すると、その人の全欠勤履歴と連続欠勤日数が表示されます。</p>
+        <h3>連続欠勤アラート</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">2日以上連続で欠勤している人が自動で検出・表示されます。<br>3日以上は赤色で強調表示されます。</p>
+        <h3>全履歴フィルター</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">日付範囲や雇用形態でフィルターして履歴を絞り込めます。</p>
+        <h3>Excelエクスポート</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">「📥 エクスポート」ボタンで蓄積済みの全データをCSV（Excel対応）でダウンロードできます。</p>
+      </div>
+
+      <!-- 5. 便利機能 -->
+      <div class="card" id="sec5">
+        <h2>5. 便利機能</h2>
+        <h3>📩 メール貼り付け自動入力</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">勤怠メールの内容をそのまま貼り付けると、名前・雇用形態・日付・シフト・理由を自動で読み取って入力します。<br>①名前 ②L1/L99 ③日付、シフト ④遅刻/欠勤 ⑤理由 の形式に対応しています。</p>
+        <h3>⌨ Ctrl+Enter ショートカット</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">欠勤者登録画面でCtrl+Enterを押すと、「＋ 追加」ボタンと同じ動作をします。</p>
+        <h3>🔤 名前サジェスト</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">過去に入力した名前が自動でサジェスト表示されます。同じPCの同じブラウザで蓄積されます。</p>
+        <h3>⏰ 勤務時間サジェスト</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">よく使うシフト時間（23:00-8:00、8:00-17:00 など）がサジェスト表示されます。候補にない時間は自由入力も可能です。</p>
+      </div>
+
+      <!-- 6. スマホ対応 -->
+      <div class="card" id="sec6">
+        <h2>6. スマホでの利用</h2>
+        <p style="font-size:0.9rem;line-height:1.7;">本ツールはスマホのブラウザでも使用できます。画面幅に応じて自動でレイアウトが切り替わります。</p>
+        <h3>スマホで開く方法</h3>
+        <ul>
+          <li>HTMLファイルをメールやLINEで自分に送り、スマホのブラウザで開く</li>
+          <li>SharePointに置いてURLでアクセスする（PC・スマホ共通で使えるので推奨）</li>
+        </ul>
+      </div>
+
+      <!-- 7. 注意事項 -->
+      <div class="card" id="sec7">
+        <h2>7. 注意事項・FAQ</h2>
+        <h3>Q: データはどこに保存されますか？</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">欠勤報告画面のデータはエクスポートしたCSVファイルに保存されます。<br>欠勤履歴検索にインポートしたデータはブラウザのlocalStorageに一時保存されます（同じPCの同じブラウザでのみ有効）。<br>名前のサジェストデータもlocalStorageに保存されます。</p>
+        <h3>Q: データが消えることはありますか？</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">ブラウザのキャッシュ/閲覧データを削除すると、履歴検索のデータと名前サジェストが消えます。<br>CSVファイルとしてエクスポート済みのデータは影響を受けません。<br>毎日必ずCSVエクスポートしてSharePointに保存してください。</p>
+        <h3>Q: 同じCSVを2回インポートした場合は？</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">名前+日付+CYCLEの組み合わせで重複判定されるため、自動でスキップされます。</p>
+        <h3>Q: 複数日分のデータをまとめてインポートできますか？</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">はい。インポート時にCtrl+クリックやShift+クリックで複数CSVファイルを一括選択できます。</p>
+        <h3>Q: 推奨ブラウザは？</h3>
+        <p style="font-size:0.9rem;line-height:1.7;">Google Chrome または Microsoft Edge を推奨します。スマホはSafari / Chromeに対応しています。</p>
+      </div>
+
+      <div style="text-align:center; margin-top:16px;">
+        <button class="btn btn-primary" onclick="switchTab('report')">← 欠勤報告ツールに戻る</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ==================== タブ切り替え ====================
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-bar a').forEach(el => el.classList.remove('active'));
+  document.getElementById('content-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  window.scrollTo(0, 0);
+  if (tab === 'history') {
+    renderHistoryTable();
+    renderStreakAlert();
+  }
+}
+
+// ==================== 共通ユーティリティ ====================
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function getTypeCategory(type) {
+  if (type === 'L1') return 'L1';
+  if (type === 'Amazon Ready') return 'Amazon Ready';
+  return '派遣会社';
+}
+
+function badgeFor(type) {
+  const cat = type === 'L1' ? 'badge-l1' : type === 'Amazon Ready' ? 'badge-ar' : 'badge-agency';
+  return '<span class="badge ' + cat + '">' + esc(type) + '</span>';
+}
+
+function getHistory() {
+  return JSON.parse(localStorage.getItem('absenceHistory') || '[]');
+}
+
+// ==================== 欠勤報告タブ ====================
+const AGENCIES = ['ランスタッド', 'ファイズオペレーション', 'フルキャスト', 'バイトレ', 'ラボロ'];
+const SHIFT_PRESETS = ['23:00-8:00', '23:00-7:00', '8:00-17:00', '8:00-12:00', '8:00-13:00', '13:00-22:00'];
+let absences = [];
+
+// 初期値
+(function init() {
+  const now = new Date();
+  document.getElementById('reportDate').value = now.toISOString().slice(0, 10);
+  document.getElementById('checkTime').value = now.toTimeString().slice(0, 5);
+})();
+
+document.getElementById('absenceReason').addEventListener('change', function() {
+  document.getElementById('otherReasonGroup').style.display = this.value === 'Other' ? '' : 'none';
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); addAbsence(); }
+});
+
+// --- メール貼り付けパース ---
+function parseMailAndFill() {
+  const text = document.getElementById('mailPaste').value;
+  if (!text.trim()) { alert('メール内容を貼り付けてください'); return; }
+  const sections = {};
+  const circled = ['①','②','③','④','⑤','⑥','⑦'];
+  for (let i = 0; i < circled.length; i++) {
+    const start = text.indexOf(circled[i]);
+    if (start === -1) continue;
+    const contentStart = start + circled[i].length;
+    let end = text.length;
+    for (let j = i + 1; j < circled.length; j++) {
+      const nextPos = text.indexOf(circled[j], contentStart);
+      if (nextPos !== -1) { end = nextPos; break; }
+    }
+    sections[i + 1] = text.substring(contentStart, end).trim();
+  }
+  if (sections[1] !== undefined) {
+    let name = sections[1].replace(/^名前\s*[：:]?\s*/, '').replace(/[（\(].+$/, '').trim();
+    if (name) { document.getElementById('personName').value = name; saveName(name); }
+  }
+  if (sections[2] !== undefined) {
+    const raw = sections[2];
+    const typeEl = document.getElementById('employeeType');
+    const found = Array.from(typeEl.options).map(o => o.value).find(o => raw.includes(o));
+    if (found) typeEl.value = found;
+    else if (raw.match(/^L1$/i) || raw.match(/^L1\b/i)) typeEl.value = 'L1';
+    else if (raw.match(/Amazon\s*Ready/i)) typeEl.value = 'Amazon Ready';
+  }
+  if (sections[3] !== undefined) {
+    const normalized = sections[3].replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+    const dFull = normalized.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+    const dShort = normalized.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+    if (dFull) document.getElementById('reportDate').value = dFull[1]+'-'+dFull[2].padStart(2,'0')+'-'+dFull[3].padStart(2,'0');
+    else if (dShort) document.getElementById('reportDate').value = new Date().getFullYear()+'-'+dShort[1].padStart(2,'0')+'-'+dShort[2].padStart(2,'0');
+    const sColon = normalized.match(/(\d{1,2}):(\d{2})\s*[〜~～\-ー−–—]+\s*(\d{1,2}):(\d{2})/);
+    const sHour = normalized.match(/(\d{1,2})\s*時\s*[〜~～\-ー−–—]*\s*(\d{1,2})\s*時/);
+    const sSimple = normalized.match(/(\d{1,2})\s*[〜~～\-ー−–—]+\s*(\d{1,2})/);
+    let shiftStart = null;
+    if (sColon) { document.getElementById('workShift').value = sColon[1]+':'+sColon[2]+'-'+sColon[3]+':'+sColon[4]; shiftStart = parseInt(sColon[1]); }
+    else if (sHour) { document.getElementById('workShift').value = sHour[1]+':00-'+sHour[2]+':00'; shiftStart = parseInt(sHour[1]); }
+    else if (sSimple) { document.getElementById('workShift').value = sSimple[1]+':00-'+sSimple[2]+':00'; shiftStart = parseInt(sSimple[1]); }
+    if (shiftStart !== null) document.getElementById('cycle').value = (shiftStart >= 6 && shiftStart < 18) ? '日勤' : '夜勤';
+  }
+  if (sections[4] !== undefined) document.getElementById('contactStatus').value = '連絡あり';
+  if (sections[5] !== undefined) {
+    let raw = sections[5].replace(/^理由\s*[\(（][^）\)]*[\)）]\s*/, '').replace(/^理由\s*[：:]?\s*/, '').trim();
+    if (!raw) raw = sections[5].trim();
+    const reasonEl = document.getElementById('absenceReason');
+    if (raw.match(/sick|体調|病院|痛み|熱|風邪|頭痛|腹痛|けが|怪我|吐/i)) reasonEl.value = 'Sick Leave';
+    else if (raw.match(/family|家族|家庭/i)) reasonEl.value = 'Family Matter';
+    else if (raw.match(/no\s*contact|連絡なし/i)) reasonEl.value = 'No Contact';
+    else if (raw) { reasonEl.value = 'Other'; document.getElementById('otherReasonGroup').style.display = ''; document.getElementById('otherReason').value = raw; }
+  }
+  document.getElementById('mailPaste').value = '';
+}
+
+function showShiftSuggest() {
+  const input = document.getElementById('workShift');
+  const box = document.getElementById('shiftSuggest');
+  const matches = SHIFT_PRESETS.filter(s => s.includes(input.value.trim()));
+  if (matches.length === 0) { box.style.display = 'none'; return; }
+  box.innerHTML = matches.map(s => '<div onmousedown="pickShift(\''+s+'\')">'+s+'</div>').join('');
+  box.style.display = 'block';
+}
+function pickShift(val) { document.getElementById('workShift').value = val; document.getElementById('shiftSuggest').style.display = 'none'; }
+
+function getSavedNames() { return JSON.parse(localStorage.getItem('knownNames') || '[]'); }
+function saveName(name) {
+  const names = getSavedNames();
+  if (!names.includes(name)) { names.push(name); names.sort(); localStorage.setItem('knownNames', JSON.stringify(names)); }
+}
+function showNameSuggest() {
+  const input = document.getElementById('personName');
+  const box = document.getElementById('nameSuggest');
+  const query = input.value.trim();
+  const names = getSavedNames().filter(n => n.includes(query));
+  if (query === '' || names.length === 0) { box.style.display = 'none'; return; }
+  box.innerHTML = names.map(n => '<div onmousedown="pickName(\''+n.replace(/'/g, "\\'")+'\')">' + esc(n) + '</div>').join('');
+  box.style.display = 'block';
+}
+function pickName(name) { document.getElementById('personName').value = name; document.getElementById('nameSuggest').style.display = 'none'; }
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.name-suggest-wrap')) {
+    document.getElementById('nameSuggest').style.display = 'none';
+    document.getElementById('shiftSuggest').style.display = 'none';
+  }
+});
+
+function addAbsence() {
+  const name = document.getElementById('personName').value.trim();
+  const type = document.getElementById('employeeType').value;
+  const contact = document.getElementById('contactStatus').value;
+  const reasonSelect = document.getElementById('absenceReason').value;
+  const otherReason = document.getElementById('otherReason').value.trim();
+  const reason = reasonSelect === 'Other' ? (otherReason || 'Other') : reasonSelect;
+  if (!name) { alert('名前を入力してください'); return; }
+  absences.push({ name, type, typeCategory: getTypeCategory(type), contact, reason });
+  saveName(name);
+  document.getElementById('personName').value = '';
+  document.getElementById('nameSuggest').style.display = 'none';
+  document.getElementById('otherReason').value = '';
+  renderList();
+}
+
+function removeAbsence(index) { absences.splice(index, 1); renderList(); }
+
+function renderList() {
+  const container = document.getElementById('absenceList');
+  if (absences.length === 0) { container.innerHTML = '<p class="empty-msg">まだ欠勤者が登録されていません</p>'; return; }
+  const badgeClass = { 'L1': 'badge-l1', 'Amazon Ready': 'badge-ar' };
+  let html = '<table><thead><tr><th>#</th><th>名前</th><th>雇用形態</th><th>連絡</th><th>欠勤理由</th><th></th></tr></thead><tbody>';
+  absences.forEach((a, i) => {
+    const cb = a.contact === '連絡あり' ? '<span class="badge badge-contact-yes">連絡あり</span>' : '<span class="badge badge-contact-no">連絡なし</span>';
+    const bc = badgeClass[a.typeCategory] || 'badge-agency';
+    html += '<tr><td>'+(i+1)+'</td><td>'+esc(a.name)+'</td><td><span class="badge '+bc+'">'+esc(a.type)+'</span></td><td>'+cb+'</td><td>'+esc(a.reason)+'</td><td><button class="btn btn-danger" onclick="removeAbsence('+i+')">削除</button></td></tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+</script>
+
+<script>
+function generateReport() {
+  if (absences.length === 0) { document.getElementById('reportOutput').textContent = '欠勤者が登録されていません。'; return; }
+  const date = document.getElementById('reportDate').value;
+  const time = document.getElementById('checkTime').value;
+  const cycle = document.getElementById('cycle').value;
+  const total = absences.length;
+  const l1Count = absences.filter(a => a.typeCategory === 'L1').length;
+  const arCount = absences.filter(a => a.typeCategory === 'Amazon Ready').length;
+  const agencyAll = absences.filter(a => a.typeCategory === '派遣会社');
+  const agencyTotal = agencyAll.length;
+  const agencyBreakdown = {};
+  agencyAll.forEach(a => { agencyBreakdown[a.type] = (agencyBreakdown[a.type] || 0) + 1; });
+  const contactYes = absences.filter(a => a.contact === '連絡あり').length;
+  const contactNo = absences.filter(a => a.contact === '連絡なし').length;
+  function contactByCategory(cat) {
+    const items = absences.filter(a => a.typeCategory === cat);
+    return { yes: items.filter(a => a.contact === '連絡あり').length, no: items.filter(a => a.contact === '連絡なし').length };
+  }
+  const l1Contact = contactByCategory('L1');
+  const arContact = contactByCategory('Amazon Ready');
+  const agContact = contactByCategory('派遣会社');
+
+  let report = '【欠勤報告】\n日付: '+date+'\nCYCLE: '+cycle+'\n確認時刻: '+time+'\n\n';
+  report += '■ Total欠勤数: '+total+'名\n  連絡あり: '+contactYes+'名 ／ 連絡なし: '+contactNo+'名\n\n';
+  report += '■ 連絡あり/なし 雇用形態別内訳\n';
+  if (l1Contact.yes + l1Contact.no > 0) report += '  L1: 連絡あり '+l1Contact.yes+'名 ／ 連絡なし '+l1Contact.no+'名\n';
+  if (agContact.yes + agContact.no > 0) {
+    const agencyContactYes = absences.filter(a => a.typeCategory === '派遣会社' && a.contact === '連絡あり');
+    const agencyContactNo = absences.filter(a => a.typeCategory === '派遣会社' && a.contact === '連絡なし');
+    const agencyYesByName = {}; agencyContactYes.forEach(a => { agencyYesByName[a.type] = (agencyYesByName[a.type] || 0) + 1; });
+    const agencyNoByName = {}; agencyContactNo.forEach(a => { agencyNoByName[a.type] = (agencyNoByName[a.type] || 0) + 1; });
+    const yesDetail = Object.entries(agencyYesByName).map(([n, c]) => n+' '+c+'名').join('、');
+    const noDetail = Object.entries(agencyNoByName).map(([n, c]) => n+' '+c+'名').join('、');
+    let l99Line = '  L99: 連絡有 '+agContact.yes+'名';
+    if (yesDetail) l99Line += '（'+yesDetail+'）';
+    l99Line += '連絡無 '+agContact.no+'名';
+    if (noDetail) l99Line += '（'+noDetail+'）';
+    report += l99Line + '\n';
+  }
+  if (arContact.yes + arContact.no > 0) report += '  Amazon Ready: 連絡あり '+arContact.yes+'名 ／ 連絡なし '+arContact.no+'名\n';
+  report += '\n■ 雇用形態別欠勤数\n';
+  if (l1Count > 0) report += '  L1: '+l1Count+'名\n';
+  if (agencyTotal > 0) {
+    report += '  派遣会社: '+agencyTotal+'名\n';
+    Object.entries(agencyBreakdown).forEach(([name, count]) => { report += '    └ '+name+': '+count+'名\n'; });
+  }
+  if (arCount > 0) report += '  Amazon Ready: '+arCount+'名\n';
+  report += '\n■ ByName 欠勤詳細\n';
+  absences.forEach((a, i) => { report += '  '+(i+1)+'. '+a.name+'（'+a.type+'／'+a.contact+'）- '+a.reason+'\n'; });
+  document.getElementById('reportOutput').textContent = report;
+  exportHistory();
+}
+
+function copyReport() {
+  navigator.clipboard.writeText(document.getElementById('reportOutput').textContent).then(() => {
+    const msg = document.getElementById('copyMsg');
+    msg.style.display = 'inline';
+    setTimeout(() => { msg.style.display = 'none'; }, 2000);
+  });
+}
+
+function resetAll() {
+  if (!confirm('全てリセットしますか？')) return;
+  absences = [];
+  renderList();
+  document.getElementById('reportOutput').textContent = 'レポート生成ボタンを押してください';
+  const now = new Date();
+  document.getElementById('reportDate').value = now.toISOString().slice(0, 10);
+  document.getElementById('checkTime').value = now.toTimeString().slice(0, 5);
+}
+
+function exportHistory() {
+  if (absences.length === 0) { alert('エクスポートする欠勤者がいません'); return; }
+  const date = document.getElementById('reportDate').value;
+  const cycle = document.getElementById('cycle').value;
+  const time = document.getElementById('checkTime').value;
+  const headers = ['日付', 'CYCLE', '確認時刻', '名前', '雇用形態', '連絡状況', '欠勤理由'];
+  const rows = absences.map(a => [date, cycle, time, a.name, a.type, a.contact, a.reason]);
+  const csvContent = [headers, ...rows].map(row => row.map(cell => '"'+String(cell).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'absence_history_' + date + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ==================== 欠勤履歴検索タブ ====================
+function searchPerson() {
+  const query = document.getElementById('searchName').value.trim();
+  const container = document.getElementById('personResult');
+  if (!query) { container.innerHTML = ''; return; }
+  const history = getHistory();
+  const matched = history.filter(r => r.name.includes(query));
+  if (matched.length === 0) { container.innerHTML = '<p class="empty-msg">該当する履歴がありません</p>'; return; }
+  const byName = {};
+  matched.forEach(r => { if (!byName[r.name]) byName[r.name] = []; byName[r.name].push(r); });
+  let html = '';
+  Object.entries(byName).forEach(([name, records]) => {
+    records.sort((a, b) => b.date.localeCompare(a.date));
+    const streak = calcStreak(records);
+    const totalDays = new Set(records.map(r => r.date)).size;
+    html += '<div class="person-history"><p style="font-weight:700;font-size:0.95rem;margin-bottom:4px;">'+esc(name)+' — 合計欠勤日数: '+totalDays+'日';
+    if (streak >= 2) html += ' <span style="color:#d9534f;">（直近 '+streak+'日連続欠勤中）</span>';
+    html += '</p><table><thead><tr><th>日付</th><th>CYCLE</th><th>雇用形態</th><th>連絡</th><th>理由</th></tr></thead><tbody>';
+    records.forEach(r => {
+      const cb = r.contact === '連絡あり' ? '<span class="badge badge-contact-yes">連絡あり</span>' : '<span class="badge badge-contact-no">連絡なし</span>';
+      html += '<tr><td>'+esc(r.date)+'</td><td>'+esc(r.cycle)+'</td><td>'+badgeFor(r.type)+'</td><td>'+cb+'</td><td>'+esc(r.reason)+'</td></tr>';
+    });
+    html += '</tbody></table></div>';
+  });
+  container.innerHTML = html;
+}
+
+function calcStreak(records) {
+  const dates = [...new Set(records.map(r => r.date))].sort().reverse();
+  if (dates.length === 0) return 0;
+  let streak = 1;
+  for (let i = 0; i < dates.length - 1; i++) {
+    const diff = (new Date(dates[i]) - new Date(dates[i + 1])) / (1000 * 60 * 60 * 24);
+    if (diff <= 1) streak++; else break;
+  }
+  return streak;
+}
+
+function renderStreakAlert() {
+  const history = getHistory();
+  const container = document.getElementById('streakAlert');
+  if (history.length === 0) { container.innerHTML = '<p class="empty-msg">履歴データがありません</p>'; return; }
+  const byName = {};
+  history.forEach(r => { if (!byName[r.name]) byName[r.name] = []; byName[r.name].push(r); });
+  const alerts = [];
+  Object.entries(byName).forEach(([name, records]) => {
+    const streak = calcStreak(records);
+    if (streak >= 2) {
+      const latest = records.sort((a, b) => b.date.localeCompare(a.date))[0];
+      alerts.push({ name, streak, type: latest.type, reason: latest.reason, lastDate: latest.date });
+    }
+  });
+  if (alerts.length === 0) { container.innerHTML = '<p class="empty-msg">連続欠勤者はいません</p>'; return; }
+  alerts.sort((a, b) => b.streak - a.streak);
+  container.innerHTML = alerts.map(a => {
+    const cls = a.streak >= 3 ? 'streak-warn streak-danger' : 'streak-warn';
+    return '<div class="'+cls+'"><span class="name">'+esc(a.name)+'</span>（'+badgeFor(a.type)+'）— <strong>'+a.streak+'日連続欠勤</strong>／最終日: '+esc(a.lastDate)+' ／理由: '+esc(a.reason)+'</div>';
+  }).join('');
+}
+
+function renderHistoryTable() {
+  const history = getHistory();
+  const container = document.getElementById('historyTable');
+  const from = document.getElementById('filterFrom').value;
+  const to = document.getElementById('filterTo').value;
+  const typeFilter = document.getElementById('filterType').value;
+  let filtered = history;
+  if (from) filtered = filtered.filter(r => r.date >= from);
+  if (to) filtered = filtered.filter(r => r.date <= to);
+  if (typeFilter) filtered = filtered.filter(r => r.type === typeFilter);
+  filtered.sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name));
+  if (filtered.length === 0) { container.innerHTML = '<p class="empty-msg">該当する履歴がありません</p>'; return; }
+  let html = '<p style="font-size:0.85rem;color:#666;margin-top:8px;">全'+filtered.length+'件</p>';
+  html += '<table><thead><tr><th>日付</th><th>CYCLE</th><th>名前</th><th>雇用形態</th><th>連絡</th><th>理由</th><th>確認時刻</th></tr></thead><tbody>';
+  filtered.forEach(r => {
+    const cb = r.contact === '連絡あり' ? '<span class="badge badge-contact-yes">連絡あり</span>' : '<span class="badge badge-contact-no">連絡なし</span>';
+    html += '<tr><td>'+esc(r.date)+'</td><td>'+esc(r.cycle)+'</td><td>'+esc(r.name)+'</td><td>'+badgeFor(r.type)+'</td><td>'+cb+'</td><td>'+esc(r.reason)+'</td><td>'+esc(r.time||'')+'</td></tr>';
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function clearFilters() {
+  document.getElementById('filterFrom').value = '';
+  document.getElementById('filterTo').value = '';
+  document.getElementById('filterType').value = '';
+  renderHistoryTable();
+}
+
+function exportFullHistory() {
+  const history = getHistory();
+  if (history.length === 0) { alert('エクスポートする履歴がありません'); return; }
+  const headers = ['日付', 'CYCLE', '確認時刻', '名前', '雇用形態', '連絡状況', '欠勤理由'];
+  const rows = history.map(r => [r.date||'', r.cycle||'', r.time||'', r.name||'', r.type||'', r.contact||'', r.reason||'']);
+  const csvContent = [headers, ...rows].map(row => row.map(cell => '"'+String(cell).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'absence_history_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const results = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = []; let cur = '', inQuote = false;
+    for (let j = 0; j < lines[i].length; j++) {
+      const ch = lines[i][j];
+      if (inQuote) { if (ch === '"' && lines[i][j+1] === '"') { cur += '"'; j++; } else if (ch === '"') inQuote = false; else cur += ch; }
+      else { if (ch === '"') inQuote = true; else if (ch === ',') { cols.push(cur); cur = ''; } else cur += ch; }
+    }
+    cols.push(cur);
+    if (cols.length >= 7) results.push({ date: cols[0], cycle: cols[1], time: cols[2], name: cols[3], type: cols[4], contact: cols[5], reason: cols[6] });
+  }
+  return results;
+}
+
+function importHistory(event) {
+  const files = Array.from(event.target.files);
+  if (files.length === 0) return;
+  const existing = getHistory();
+  const existingKeys = new Set(existing.map(r => r.name+'|'+r.date+'|'+r.cycle));
+  let totalAdded = 0, totalSkipped = 0, processed = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        let imported;
+        if (file.name.endsWith('.csv')) imported = parseCSV(e.target.result);
+        else { imported = JSON.parse(e.target.result); if (!Array.isArray(imported)) imported = []; }
+        imported.forEach(r => {
+          const key = r.name+'|'+r.date+'|'+(r.cycle||'');
+          if (!existingKeys.has(key)) { existing.push(r); existingKeys.add(key); totalAdded++; } else totalSkipped++;
+        });
+      } catch(err) {}
+      processed++;
+      if (processed === files.length) {
+        localStorage.setItem('absenceHistory', JSON.stringify(existing));
+        alert('インポート完了（'+files.length+'ファイル）: '+totalAdded+'件追加、'+totalSkipped+'件は重複スキップ');
+        renderHistoryTable();
+        renderStreakAlert();
+      }
+    };
+    reader.readAsText(file);
+  });
+  event.target.value = '';
+}
+
+function clearAllHistory() {
+  if (!confirm('全ての履歴データを削除しますか？この操作は取り消せません。')) return;
+  localStorage.removeItem('absenceHistory');
+  renderHistoryTable();
+  renderStreakAlert();
+  document.getElementById('personResult').innerHTML = '';
+}
+</script>
+</body>
+</html>
